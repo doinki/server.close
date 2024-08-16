@@ -1,14 +1,16 @@
+export interface Options {
+  onShutdown?: (signal?: string) => Promise<void> | void;
+  signals?: string[];
+  timeout?: number;
+}
+
 export function gracefulShutdown(
   server: any,
   {
     onShutdown,
     signals = ['SIGINT', 'SIGTERM'],
     timeout = 10000,
-  }: {
-    onShutdown?: (signal?: string) => Promise<void> | void;
-    signals?: string[];
-    timeout?: number;
-  } = {},
+  }: Options = {},
 ) {
   let isShuttingDown = false;
   let connections = new Set();
@@ -22,8 +24,14 @@ export function gracefulShutdown(
     isShuttingDown = true;
 
     try {
-      setHeader(connections);
-      setHeader(secureConnections);
+      connections.forEach((socket) => {
+        // @ts-ignore
+        setHeader(null, socket._httpMessage);
+      });
+      secureConnections.forEach((socket) => {
+        // @ts-ignore
+        setHeader(null, socket._httpMessage);
+      });
 
       await Promise.race([close(server), delay(timeout)]);
       await onShutdown?.();
@@ -35,6 +43,9 @@ export function gracefulShutdown(
       process.exit(1);
     }
   }
+
+  // @ts-ignore
+  server.on('request', setHeader);
 
   // @ts-ignore
   server.on('connection', (socket) => {
@@ -71,14 +82,10 @@ function close(server: any): Promise<void> {
   });
 }
 
-function setHeader(set: Set<any>): void {
-  set.forEach((socket) => {
-    const res = socket._httpMessage;
-
-    if (res && !res.headersSent) {
-      res.setHeader('Connection', 'close');
-    }
-  });
+function setHeader(req: any, res: any): void {
+  if (res && !res.headersSent) {
+    res.setHeader('Connection', 'close');
+  }
 }
 
 function delay(ms: number): Promise<void> {
