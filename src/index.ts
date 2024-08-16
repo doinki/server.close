@@ -26,11 +26,11 @@ export function gracefulShutdown(
     try {
       connections.forEach((socket) => {
         // @ts-ignore
-        setHeader(null, socket._httpMessage);
+        setHeader(socket._httpMessage);
       });
       secureConnections.forEach((socket) => {
         // @ts-ignore
-        setHeader(null, socket._httpMessage);
+        setHeader(socket._httpMessage);
       });
 
       await Promise.race([close(server), delay(timeout)]);
@@ -45,7 +45,11 @@ export function gracefulShutdown(
   }
 
   // @ts-ignore
-  server.on('request', setHeader);
+  server.on('request', (_, res) => {
+    if (isShuttingDown) {
+      setHeader(res);
+    }
+  });
 
   // @ts-ignore
   server.on('connection', (socket) => {
@@ -82,7 +86,7 @@ function close(server: any): Promise<void> {
   });
 }
 
-function setHeader(req: any, res: any): void {
+function setHeader(res: any): void {
   if (res && !res.headersSent) {
     res.setHeader('Connection', 'close');
   }
