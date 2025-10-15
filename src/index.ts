@@ -1,98 +1,104 @@
+import type {
+  IncomingMessage,
+  RequestListener,
+  Server,
+  ServerResponse,
+} from 'node:http';
+import type { Http2SecureServer, Http2Server } from 'node:http2';
+import type { Socket } from 'node:net';
+
+export type ServerType = Server | Http2Server | Http2SecureServer;
+
 export interface Options {
   onShutdown?: (signal?: string) => Promise<void> | void;
   signals?: string[];
   timeout?: number;
 }
 
+interface SocketWithResponse extends Socket {
+  _httpMessage?: ServerResponse;
+}
+
 export function gracefulShutdown(
-  server: any,
+  server: ServerType,
   {
     onShutdown,
     signals = ['SIGINT', 'SIGTERM'],
     timeout = 10000,
   }: Options = {},
 ) {
-  let isShuttingDown = false;
-  let connections = new Set();
-  let secureConnections = new Set();
+  let shuttingDown = false;
 
-  async function shutdown() {
-    if (isShuttingDown) {
+  const activeSockets = new Set<SocketWithResponse>();
+
+  async function shutdown(signal?: string): Promise<void> {
+    if (shuttingDown) {
       return;
     }
 
-    isShuttingDown = true;
+    shuttingDown = true;
 
     try {
-      connections.forEach((socket) => {
-        // @ts-ignore
-        setHeader(socket._httpMessage);
-      });
-      secureConnections.forEach((socket) => {
-        // @ts-ignore
-        setHeader(socket._httpMessage);
-      });
+      for (const socket of activeSockets) {
+        if (socket._httpMessage) {
+          setConnectionCloseHeader(socket._httpMessage);
+        }
+      }
 
-      await Promise.race([close(server), delay(timeout)]);
-      await onShutdown?.();
+      await Promise.race([closeServer(server), wait(timeout)]);
+
+      await onShutdown?.(signal);
 
       process.exit(0);
     } catch (error) {
       console.error(error);
-
       process.exit(1);
     }
   }
 
-  // @ts-ignore
-  server.on('request', (_, res) => {
-    if (isShuttingDown) {
-      setHeader(res);
+  server.on('request', ((_, res) => {
+    if (shuttingDown) {
+      setConnectionCloseHeader(res);
     }
-  });
+  }) as RequestListener<typeof IncomingMessage, typeof ServerResponse>);
 
-  // @ts-ignore
-  server.on('connection', (socket) => {
-    connections.add(socket);
+  const handleConnection = (socket: SocketWithResponse): void => {
+    activeSockets.add(socket);
 
-    socket.on('close', () => {
-      connections.delete(socket);
+    socket.once('close', () => {
+      activeSockets.delete(socket);
     });
-  });
-  // @ts-ignore
-  server.on('secureConnection', (socket) => {
-    secureConnections.add(socket);
+  };
 
-    socket.on('close', () => {
-      secureConnections.delete(socket);
-    });
-  });
+  server.on('connection', handleConnection);
+  server.on('secureConnection', handleConnection);
 
-  for (let i = 0; i < signals.length; ++i) {
-    let signal = signals[i];
-
-    process.on(signal, shutdown);
+  for (const signal of signals) {
+    process.on(signal, () => shutdown(signal));
   }
 
   return shutdown;
 }
 
-function close(server: any): Promise<void> {
+function closeServer(server: ServerType): Promise<void> {
   return new Promise((resolve, reject) => {
-    // @ts-ignore
     server.close((error) => {
-      return error ? reject(error) : resolve();
+      if (error) {
+        reject(error);
+      } else {
+        resolve();
+      }
     });
   });
 }
 
-function setHeader(res: any): void {
-  if (res && !res.headersSent) {
+function setConnectionCloseHeader(res: ServerResponse): void {
+  if (!res.headersSent) {
     res.setHeader('Connection', 'close');
   }
 }
 
-function delay(ms: number): Promise<void> {
+function wait(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });

@@ -2,6 +2,8 @@
   "name": "server.close",
   "version": "0.0.2",
   "license": "MIT",
+  "packageManager": "pnpm@10.18.3",
+  "sideEffects": false,
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -19,26 +21,18 @@
     },
     "./package.json": "./package.json"
   },
-  "files": [
-    "dist"
-  ],
-  "sideEffects": false,
-  "packageManager": "pnpm@9.7.1",
   "scripts": {
     "build": "tsup",
-    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "release": "pnpm run build && publint && changeset publish"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.27.7",
-    "@types/node": "^22.3.0",
-    "eslint": "^8.57.0",
-    "eslint-config-mado": "^0.3.1",
-    "prettier": "^3.3.3",
-    "publint": "^0.2.10",
-    "tsup": "^8.2.4",
-    "typescript": "^5.5.4"
+    "@changesets/cli": "^2.29.7",
+    "@types/node": "^22.18.10",
+    "prettier": "^3.6.2",
+    "publint": "^0.3.14",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.3"
   },
   "author": {
     "email": "doinki94@gmail.com",
@@ -46,10 +40,13 @@
     "url": "https://github.com/doinki"
   },
   "bugs": "https://github.com/doinki/server.close/issues",
+  "files": [
+    "dist"
+  ],
   "homepage": "https://github.com/doinki/server.close#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/doinki/server.close.git"
+    "url": "git+https://github.com/doinki/server.close.git"
   },
   "publishConfig": {
     "access": "public"
