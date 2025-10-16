@@ -39,13 +39,15 @@ export function gracefulShutdown(
     shuttingDown = true;
 
     try {
+      const closePromise = closeServer(server);
+
       for (const socket of activeSockets) {
         if (socket._httpMessage) {
           setConnectionCloseHeader(socket._httpMessage);
         }
       }
 
-      await Promise.race([closeServer(server), wait(timeout)]);
+      await Promise.race([closePromise, wait(timeout)]);
 
       await onShutdown?.(signal);
 
