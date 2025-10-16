@@ -13,6 +13,6 @@ export default defineConfig({
   esbuildOptions: (options) => {
     options.sourcemap = true;
   },
-  target: 'node16',
+  target: 'node19',
   treeshake: true,
 });

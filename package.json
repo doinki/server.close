@@ -2,6 +2,9 @@
   "name": "server.close",
   "version": "0.1.0",
   "license": "MIT",
+  "engines": {
+    "node": ">=19"
+  },
   "packageManager": "pnpm@10.18.3",
   "sideEffects": false,
   "type": "module",
